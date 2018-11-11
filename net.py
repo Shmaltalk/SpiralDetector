@@ -3,6 +3,15 @@
 # A Guide to TF Layers: Building a Convolutional Neural Network
 # https://www.tensorflow.org/tutorials/layers
 #
+#
+# Given a file of points and numerical values, this will train a
+# basic neural network to classify any point to its "proper" numerical value.
+# This will likely greatly overfit, but given the nature of the original
+# assignment, that was necessary.
+#
+# Though overly simple, this is a good base to start from if you need to use
+# the tf.layers module. Since it uses most features in a simple way.
+
 
 from skimage.io import imsave
 from skimage.color import gray2rgb
@@ -15,6 +24,7 @@ lr = 0.01
 batch_sz = 50
 stps = 50000
 output_name = './spiralimage.jpg'
+input_file = './points.txt'
 
 def net(features, labels, mode):
 
@@ -43,38 +53,37 @@ def net(features, labels, mode):
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
- #       print("hellohello")
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
     
     # Calculate Loss (for both TRAIN and EVAL modes)
     loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=output)
     
-    # Configure the Training Op (for TRAIN mode)
+    # Configure the Training Optimizer (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=lr)
         train_op = optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step())
+            global_step=tf.train.get_global_step()
+        )
         return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
 
     # Add evaluation metrics (for EVAL mode)
     eval_metric_ops = {
-        "accuracy": tf.metrics.accuracy(
-            labels=labels, predictions=predictions["classes"])}
-#    print("nothing")
-    return tf.estimator.EstimatorSpec(
-        mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
+        "accuracy": tf.metrics.accuracy(labels=labels, predictions=predictions["classes"])
+    }
+    
+    return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
  
  
 def main(unused):
     #find total number of training values
     x=0
     print("processing input file")
-    points_file = open("points.txt", "r")
+    points_file = open(input_file, "r")
     for line in points_file:
         x += 1
     
-    #make input and labels arrays
+    #make input and labels arrays. Note these are simply numpy arrays
     feat = np.zeros((x, 2))
     labels = np.zeros(x)
     
@@ -82,10 +91,9 @@ def main(unused):
     i=0
     points_file.close()
 
-    points_file = open("points.txt", "r")
+    points_file = open(input_file, "r")
     for line in points_file:
         temp = line.split()
-        #print(float(temp[0]))
         feat[i][0] = float(temp[0])
         feat[i][1] = float(temp[1])
         labels[i] = float(temp[2])
@@ -95,13 +103,13 @@ def main(unused):
     
     
     feat = feat
-    labels = labels.astype(dtype='int32')
+    labels = labels.astype(dtype='int32') # Note that in this case I wanted integers, but that isn't necessary
 
     #print(feat)
     #print(labels)
     
     
-    classifier = tf.estimator.Estimator(model_fn=net)#, model_dir = "model")
+    classifier = tf.estimator.Estimator(model_fn=net)
 
     # Set up logging for predictions
     # Log the values in the "Softmax" tensor with label "probabilities"
@@ -127,11 +135,13 @@ def main(unused):
         x={"x": feat},
         y=labels,
         num_epochs=1,
-        shuffle=False)
+        shuffle=False
+    )
     eval_results = classifier.evaluate(input_fn=test_input_fn)
     print(eval_results)
 
-
+    # Produce an example image of what the training found
+    # This is very specific for this project, don't worry about it in other cases
     scale = 80 #use an even number
     #set up inputs for image
     width = int(6.5*scale)
